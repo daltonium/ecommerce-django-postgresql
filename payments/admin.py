@@ -4,13 +4,14 @@ from .models import Payment
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ['id', 'order', 'amount', 'status', 'method', 'created_at']
-    list_filter = ['status', 'method']
-    search_fields = ['razorpay_order_id', 'razorpay_payment_id', 'order__user__email']
+    list_display  = ['id', 'order', 'amount', 'status', 'created_at']
+    list_filter   = ['status']
+    search_fields = ['razorpay_order_id', 'razorpay_payment_id', 'order__id']
     readonly_fields = [
-        'razorpay_order_id', 'razorpay_payment_id', 'razorpay_signature',
-        'amount', 'created_at'
+        'razorpay_order_id',
+        'razorpay_payment_id',
+        'razorpay_signature',
+        'created_at',
+        'updated_at',
     ]
-    # All payment data is read-only in admin.
-    # The only field that should ever be manually changed is 'status'
-    # (e.g., manually marking a REFUNDED payment).
+    ordering = ['-created_at']

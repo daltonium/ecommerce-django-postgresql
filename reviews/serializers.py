@@ -28,8 +28,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class ReviewCreateSerializer(serializers.Serializer):
-    """Plain serializer — just validates input. Service does the work."""
-    product_id = serializers.IntegerField()
+    """product_id comes from the URL, not the request body."""
     rating = serializers.IntegerField(min_value=1, max_value=5)
     comment = serializers.CharField(required=False, default='', allow_blank=True)
 

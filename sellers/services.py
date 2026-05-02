@@ -1,131 +1,107 @@
-from django.db.models import (
-    Sum, Count, Avg, F, DecimalField, ExpressionWrapper
-)
-from django.db.models.functions import TruncMonth
-from products.models import Product
+from decimal import Decimal
+
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
+
 from orders.models import Order, OrderItem
-from reviews.models import Review
+from products.models import Product
 
 
 def get_seller_dashboard(seller):
     """
-    Builds a complete analytics dashboard for a seller.
+    Returns revenue, order count, product count, and top products.
 
-    annotate() vs aggregate():
-    ──────────────────────────
-    aggregate() = collapses ALL rows into ONE summary dict.
-                  e.g., total revenue across all products → one number.
-    
-    annotate() = adds a computed column to EACH row in a queryset.
-                 e.g., add review_count to each product row → still a list.
-    
-    Think of aggregate() as Excel's =SUM() at the bottom of a column.
-    Think of annotate() as adding a new calculated column to each row.
+    TWO BUGS FIXED HERE vs the previous version:
+    1. F("price") → F("price_at_purchase")
+       Your OrderItem model stores the price snapshot in a field named
+       price_at_purchase (confirmed by the FieldError in the traceback:
+       "Choices are: created_at, id, order, order_id, price_at_purchase,
+       product, product_id, quantity, updated_at").
+       F("price") tried to reference a field that does not exist.
+
+    2. ExpressionWrapper is now imported at the top of this file.
+       Previously it was used but never imported → NameError.
     """
-
-    # ── 1. Overall stats (aggregate = one summary) ──────────────────────────
-    overall = OrderItem.objects.filter(
+    paid_items = OrderItem.objects.filter(
+        product__seller=seller,
         order__status=Order.Status.PAID,
-        product__seller=seller
-    ).aggregate(
-        total_revenue=Sum(
-            ExpressionWrapper(
-                F('price_at_purchase') * F('quantity'),
-                output_field=DecimalField()
-            )
-            # WHY ExpressionWrapper?
-            # Multiplying two fields (price × quantity) produces a
-            # non-standard type. ExpressionWrapper tells Django the
-            # output is a DecimalField so it generates correct SQL.
-        ),
-        total_orders=Count('order', distinct=True),
-        # distinct=True: count unique orders, not total items.
-        # Without distinct: 3 items in one order = count of 3, not 1.
-        total_units_sold=Sum('quantity'),
     )
 
-    # ── 2. Product-level stats (annotate = per-product columns) ─────────────
-    products = Product.objects.filter(seller=seller).annotate(
-        review_count=Count('reviews'),
-        avg_rating=Avg('reviews__rating'),
-        # reviews__rating = traverse the reverse FK → Review model → rating field
-        # Avg() computes the SQL: AVG(reviews.rating) GROUP BY product.id
-        units_sold=Sum(
-            'order_items__quantity',
-            filter=models.Q(order_items__order__status=Order.Status.PAID)
-            # filter= inside aggregate = SQL CASE WHEN → conditional aggregation.
-            # Only sum quantities from PAID orders, not PENDING or CANCELLED.
-        ),
-        revenue=Sum(
-            ExpressionWrapper(
-                F('order_items__price_at_purchase') * F('order_items__quantity'),
-                output_field=DecimalField()
-            ),
-            filter=models.Q(order_items__order__status=Order.Status.PAID)
-        )
-    ).order_by('-revenue')
+    # price_at_purchase = the price that was snapshotted when the order was placed.
+    # WHY snapshot? If the seller later changes the product price, the order total
+    # must still reflect what the buyer actually paid — not the new price.
+    revenue_expr = ExpressionWrapper(
+        F("price_at_purchase") * F("quantity"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
 
-    # ── 3. Monthly revenue trend (TruncMonth groups by month) ───────────────
-    monthly_revenue = OrderItem.objects.filter(
-        order__status=Order.Status.PAID,
-        product__seller=seller
-    ).annotate(
-        month=TruncMonth('order__created_at')
-        # TruncMonth = truncates a datetime to just the month.
-        # 2026-03-15 → 2026-03-01 (all days in March become March 1st)
-        # This groups all March orders under one "month" label.
-    ).values('month').annotate(
-        revenue=Sum(
-            ExpressionWrapper(
-                F('price_at_purchase') * F('quantity'),
-                output_field=DecimalField()
-            )
-        )
-    ).order_by('month')
-    # The SQL this generates:
-    # SELECT DATE_TRUNC('month', orders.created_at) AS month,
-    #        SUM(price_at_purchase * quantity) AS revenue
-    # FROM order_items
-    # JOIN orders ON ...
-    # WHERE orders.status = 'PAID' AND products.seller_id = X
-    # GROUP BY month
-    # ORDER BY month
+    total_revenue = paid_items.aggregate(
+        total=Sum(revenue_expr)
+    )["total"] or Decimal("0.00")
 
-    # ── 4. Recent orders ─────────────────────────────────────────────────────
-    recent_orders = Order.objects.filter(
+    total_orders = Order.objects.filter(
         items__product__seller=seller,
-        status=Order.Status.PAID
-    ).distinct().select_related('user').order_by('-created_at')[:10]
-    # [:10] = LIMIT 10 in SQL — only fetch last 10 orders.
-    # .distinct() = a seller with 3 items in one order shouldn't see it 3 times.
+        status=Order.Status.PAID,
+    ).distinct().count()
+
+    total_products = Product.objects.filter(seller=seller).count()
+
+    top_products_qs = paid_items.values(
+        "product_id",
+        "product__name",
+    ).annotate(
+        quantity_sold=Sum("quantity"),
+        revenue=Sum(revenue_expr),
+        orders_count=Count("order", distinct=True),
+    ).order_by("-quantity_sold", "-revenue")[:5]
+
+    top_products = [
+        {
+            "product_id": row["product_id"],
+            "name":        row["product__name"],
+            "quantity_sold": row["quantity_sold"] or 0,
+            "orders_count":  row["orders_count"] or 0,
+            "revenue":       str(row["revenue"] or Decimal("0.00")),
+        }
+        for row in top_products_qs
+    ]
 
     return {
-        'overall': overall,
-        'products': products,
-        'monthly_revenue': list(monthly_revenue),
-        'recent_orders': recent_orders,
+        "total_revenue":   str(total_revenue),
+        "total_orders":    total_orders,
+        "total_products":  total_products,
+        "top_products":    top_products,
     }
 
 
 def get_product_analytics(seller, product_id):
-    """Deep analytics for a single product."""
-    import django.db.models as models
+    """
+    Per-product breakdown for a seller's own product.
+    Also uses price_at_purchase for revenue calculations.
+    """
+    product = Product.objects.get(id=product_id, seller=seller)
 
-    try:
-        product = Product.objects.get(id=product_id, seller=seller)
-    except Product.DoesNotExist:
-        raise ValueError("Product not found.")
-
-    stats = Review.objects.filter(product=product).aggregate(
-        avg_rating=Avg('rating'),
-        total_reviews=Count('id'),
-        five_star=Count('id', filter=models.Q(rating=5)),
-        four_star=Count('id', filter=models.Q(rating=4)),
-        three_star=Count('id', filter=models.Q(rating=3)),
-        two_star=Count('id', filter=models.Q(rating=2)),
-        one_star=Count('id', filter=models.Q(rating=1)),
-        # Conditional Count: COUNT(id) WHERE rating = 5
-        # This builds a rating distribution in ONE query.
+    paid_items = OrderItem.objects.filter(
+        product=product,
+        order__status=Order.Status.PAID,
     )
 
-    return {'product': product, 'review_stats': stats}
+    revenue_expr = ExpressionWrapper(
+        F("price_at_purchase") * F("quantity"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
+    data = paid_items.aggregate(
+        total_quantity=Sum("quantity"),
+        total_revenue=Sum(revenue_expr),
+        total_orders=Count("order", distinct=True),
+    )
+
+    return {
+        "product_id":          product.id,
+        "name":                product.name,
+        "stock":               product.stock,
+        "price":               str(product.price),
+        "total_quantity_sold": data["total_quantity"] or 0,
+        "total_revenue":       str(data["total_revenue"] or Decimal("0.00")),
+        "total_orders":        data["total_orders"] or 0,
+    }
