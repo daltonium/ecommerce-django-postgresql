@@ -27,6 +27,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
 
+COHERE_API_KEY = os.getenv('COHERE_API_KEY')
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
     'reviews',
     'sellers',
     'messaging',
+    'chatbot',
 ]
 
 MIDDLEWARE = [
