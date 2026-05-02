@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* BlueCart E-commerce - Army Black (#171616) & Algerian Coral (#F95C4B) */
+:root {
+  /* Primary Brand Colors */
+  --army-black: #171616;
+  --algerian-coral: #F95C4B;
+  --coral-hover: #E04A3A;
+  
+  /* Neutrals */
+  --off-white: #F8F7F6;
+  --light-gray: #E8E6E4;
+  --medium-gray: #9A9896;
+  --dark-gray: #3D3B3A;
+  
+  /* Semantic Tokens */
+  --background: var(--off-white);
+  --foreground: var(--army-black);
+  --card: #FFFFFF;
+  --card-foreground: var(--army-black);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--army-black);
+  --primary: var(--algerian-coral);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--light-gray);
+  --secondary-foreground: var(--army-black);
+  --muted: var(--light-gray);
+  --muted-foreground: var(--medium-gray);
+  --accent: var(--algerian-coral);
+  --accent-foreground: #FFFFFF;
+  --destructive: var(--algerian-coral);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--light-gray);
+  --input: var(--light-gray);
+  --ring: var(--algerian-coral);
+  --chart-1: var(--algerian-coral);
+  --chart-2: var(--army-black);
+  --chart-3: var(--medium-gray);
+  --chart-4: var(--dark-gray);
+  --chart-5: var(--coral-hover);
+  --radius: 0.625rem;
+  --sidebar: var(--army-black);
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: var(--algerian-coral);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--dark-gray);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: var(--dark-gray);
+  --sidebar-ring: var(--algerian-coral);
+}
+
+.dark {
+  --background: var(--army-black);
+  --foreground: #FFFFFF;
+  --card: #1E1D1D;
+  --card-foreground: #FFFFFF;
+  --popover: #1E1D1D;
+  --popover-foreground: #FFFFFF;
+  --primary: var(--algerian-coral);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--dark-gray);
+  --secondary-foreground: #FFFFFF;
+  --muted: var(--dark-gray);
+  --muted-foreground: var(--medium-gray);
+  --accent: var(--algerian-coral);
+  --accent-foreground: #FFFFFF;
+  --destructive: var(--algerian-coral);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--dark-gray);
+  --input: var(--dark-gray);
+  --ring: var(--algerian-coral);
+  --sidebar: #0D0C0C;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: var(--algerian-coral);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--dark-gray);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: var(--dark-gray);
+  --sidebar-ring: var(--algerian-coral);
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Custom Colors */
+  --color-army-black: var(--army-black);
+  --color-coral: var(--algerian-coral);
+  --color-coral-hover: var(--coral-hover);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
