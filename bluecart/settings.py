@@ -30,6 +30,7 @@ RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     # ... default apps ...
@@ -48,6 +49,7 @@ INSTALLED_APPS = [
     'payments',
     'reviews',
     'sellers',
+    'messaging',
 ]
 
 MIDDLEWARE = [
@@ -123,6 +125,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+}
+
+ASGI_APPLICATION = 'bluecart.routing.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+            # Docker mapped 6379 → 6379, so this still works perfectly
+        },
+    },
 }
 
 from datetime import timedelta
