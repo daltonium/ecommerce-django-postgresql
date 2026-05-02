@@ -33,6 +33,7 @@ COHERE_API_KEY = os.getenv('COHERE_API_KEY')
 
 INSTALLED_APPS = [
     'daphne',
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     # ... default apps ...
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -130,7 +132,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-ASGI_APPLICATION = 'bluecart.routing.application'
+ASGI_APPLICATION = 'bluecart.asgi.application'
 
 CHANNEL_LAYERS = {
     'default': {
@@ -168,3 +170,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",    # Next.js dev server
+]
