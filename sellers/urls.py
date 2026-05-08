@@ -1,14 +1,7 @@
 from django.urls import path
-from .views import (
-    SellerDashboardView,
-    SellerProductListView,
-    SellerOrderListView,
-    SellerOrderStatusView,
-)
+from .views import SellerProductListView, SellerProductDetailView
 
 urlpatterns = [
-    path('seller/dashboard/', SellerDashboardView.as_view(), name='seller-dashboard'),
-    path('seller/products/', SellerProductListView.as_view(), name='seller-products'),
-    path('seller/orders/', SellerOrderListView.as_view(), name='seller-orders'),
-    path('seller/orders/<int:order_id>/status/', SellerOrderStatusView.as_view(), name='seller-order-status'),
+    path('sellers/products/', SellerProductListView.as_view(), name='seller-products'),
+    path('sellers/products/<int:pk>/', SellerProductDetailView.as_view(), name='seller-product-detail'),
 ]

@@ -2,117 +2,105 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.db import models
-
 from products.models import Product
-from products.serializers import ProductSerializer
-from orders.models import Order
-from .services import get_seller_dashboard, get_product_analytics
+from .serializers import SellerProductSerializer
 from .permissions import IsSeller
-
-
-class SellerDashboardView(APIView):
-    """
-    GET /api/seller/dashboard/
-    Returns revenue, order count, and top products for the logged-in seller.
-
-    WHY IsSeller permission?
-    We created a reusable permission class so every seller-only view
-    declares permission_classes = [IsSeller] instead of repeating
-    the is_seller check manually inside each method.
-    DRF calls has_permission() before dispatch — view code never runs
-    for non-sellers.
-    """
-    permission_classes = [IsSeller]
-
-    def get(self, request):
-        data = get_seller_dashboard(request.user)
-        return Response(data)
-
 
 class SellerProductListView(APIView):
     """
-    GET /api/seller/products/
-    Returns only products that belong to the logged-in seller.
+    GET  /api/sellers/products/   → list only THIS seller's products
+    POST /api/sellers/products/   → create a new product
     """
-    permission_classes = [IsSeller]
+    permission_classes = [IsAuthenticated, IsSeller]
 
     def get(self, request):
-        products = Product.objects.filter(seller=request.user)
-        serializer = ProductSerializer(products, many=True)
+        # filter by seller=request.user → sellers ONLY see their own products
+        # Never use Product.objects.all() here — that's a data leak.
+        products = Product.objects.filter(
+            seller=request.user
+        ).select_related('category').order_by('-created_at')
+        serializer = SellerProductSerializer(
+            products, many=True, context={'request': request}
+        )
         return Response(serializer.data)
 
+    def post(self, request):
+        serializer = SellerProductSerializer(
+            data=request.data, context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SellerOrderListView(APIView):
+
+class SellerProductDetailView(APIView):
     """
-    GET /api/seller/orders/
-    Returns orders containing at least one of the seller's products.
-
-    WHY .distinct()?
-    When filtering through a reverse FK (items__product__seller),
-    an order with 2 items from the same seller would appear twice
-    in results without .distinct(). We deduplicate with distinct().
+    GET    /api/sellers/products/<id>/   → product detail
+    PUT    /api/sellers/products/<id>/   → full update
+    PATCH  /api/sellers/products/<id>/   → partial update (e.g. toggle is_active)
+    DELETE /api/sellers/products/<id>/   → delete
     """
-    permission_classes = [IsSeller]
+    permission_classes = [IsAuthenticated, IsSeller]
 
-    def get(self, request):
-        orders = Order.objects.filter(
-            items__product__seller=request.user
-        ).distinct()
+    def get_object(self, pk, user):
+        """
+        WHY filter by seller=user here and not just get(pk=pk)?
+        ────────────────────────────────────────────────────────
+        get(pk=pk) alone would let Seller A edit Seller B's product
+        just by knowing the ID. Adding seller=user enforces ownership
+        at the query level — the DB does the access check, not your code.
+        """
+        try:
+            return Product.objects.get(pk=pk, seller=user)
+        except Product.DoesNotExist:
+            return None
 
-        data = [
-            {
-                'id': order.id,
-                'status': order.status,
-                'total_amount': str(order.total_amount),
-                'created_at': order.created_at,
-            }
-            for order in orders
-        ]
-        return Response(data)
-
-
-class SellerOrderStatusView(APIView):
-    """
-    PATCH /api/seller/orders/<order_id>/status/
-    Lets a seller mark an order as SHIPPED.
-
-    WHY .filter().first() instead of .get()?
-    The previous code used .get(id=order_id, items__product__seller=user)
-    which crashed with MultipleObjectsReturned when an order had multiple
-    items from the same seller — each item created a duplicate row in
-    the JOIN before the filter was applied.
-
-    .filter(...).first() avoids that entirely:
-    - filter() returns a queryset (no crash on duplicates)
-    - .distinct() deduplicates the JOIN rows
-    - .first() safely picks the one matching order or returns None
-    """
-    permission_classes = [IsSeller]
-
-    def patch(self, request, order_id):
-        new_status = request.data.get('status')
-        allowed_statuses = ['SHIPPED']
-
-        if new_status not in allowed_statuses:
+    def get(self, request, pk):
+        product = self.get_object(pk, request.user)
+        if not product:
             return Response(
-                {'error': f'Status must be one of: {allowed_statuses}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND
             )
+        serializer = SellerProductSerializer(product, context={'request': request})
+        return Response(serializer.data)
 
-        # Use filter().distinct().first() to avoid MultipleObjectsReturned
-        # when the order has multiple items belonging to this seller.
-        order = Order.objects.filter(
-            id=order_id,
-            items__product__seller=request.user
-        ).distinct().first()
-
-        if not order:
+    def put(self, request, pk):
+        product = self.get_object(pk, request.user)
+        if not product:
             return Response(
-                {'error': 'Order not found.'},
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND
             )
+        serializer = SellerProductSerializer(
+            product, data=request.data, context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        order.status = new_status
-        order.save()
-        return Response({'status': order.status}, status=status.HTTP_200_OK)
+    def patch(self, request, pk):
+        product = self.get_object(pk, request.user)
+        if not product:
+            return Response(
+                {'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND
+            )
+        # partial=True → only the fields sent are updated; others untouched
+        serializer = SellerProductSerializer(
+            product, data=request.data, partial=True, context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        product = self.get_object(pk, request.user)
+        if not product:
+            return Response(
+                {'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND
+            )
+        product.delete()
+        return Response(
+            {'message': 'Product deleted.'}, status=status.HTTP_204_NO_CONTENT
+        )

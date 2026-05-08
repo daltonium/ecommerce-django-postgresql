@@ -1,3 +1,26 @@
+// Add at the top of your orders page component
+"use client";
+import { useSearchParams } from "next/navigation";
+
+// Inside the component:
+const searchParams = useSearchParams();
+const justPaid = searchParams.get("success") === "true";
+
+// Render above the orders list:
+{justPaid && (
+  <div
+    role="status"
+    className="mb-6 flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-700"
+  >
+    <svg className="h-5 w-5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <p>
+      <strong>Payment successful!</strong> Your order has been placed and is now being processed.
+    </p>
+  </div>
+)}
+
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Link from "next/link"
